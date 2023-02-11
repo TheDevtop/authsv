@@ -1,0 +1,13 @@
+[Unit]
+Description=Authentication Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/usr/local/share/authsv
+ExecStart=/usr/local/sbin/authsv server -cf cert.crt -kf cert.key -df config.json 
+
+[Install]
+WantedBy=multi-user.target
