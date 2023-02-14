@@ -10,6 +10,15 @@ import (
 	"github.com/TheDevtop/authsv/db"
 )
 
+// Make []RoleKey out of []string
+func makeRoleset(strBuf []string) []db.RoleKey {
+	rs := make([]db.RoleKey, len(strBuf))
+	for i, s := range strBuf {
+		rs[i] = db.RoleKey(s)
+	}
+	return rs
+}
+
 // Package entrypoint
 func PackageMain() {
 	flagName := flag.String("n", "admin", "Specify initial administrator")
@@ -18,13 +27,13 @@ func PackageMain() {
 	flagFile := flag.String("f", "", "Specify output file")
 	flag.Parse()
 
-	setupDB := make(db.UserDB, 1)
+	setupDB := make(db.AuthDB, 1)
 	setupDB[db.UserKey(*flagName)] = struct {
 		Secret db.SecretKey
-		Roles  db.RoleSet
+		Roles  []db.RoleKey
 	}{
 		Secret: db.SecretKey(*flagSecret),
-		Roles:  db.RoleSet(strings.Fields(*flagRoles)),
+		Roles:  makeRoleset(strings.Fields(*flagRoles)),
 	}
 
 	if buf, err := json.Marshal(&setupDB); err != nil {

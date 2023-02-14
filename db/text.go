@@ -2,74 +2,54 @@ package db
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
 	"os"
-	"sync"
-)
-
-const (
-	ErrUserNotFound  = "the specified user was not found"
-	ErrRoleNotFound  = "the specified role was not found"
-	ErrUserNotUnique = "the specified user is not unique"
-	ErrLoginFailed   = "login failed"
-	ErrUserNotAdmin  = "the specified user does not have the auth.admin role"
-)
-
-var (
-	cachedDB    UserDB
-	cachedMutex sync.Mutex
-	cachedPath  string
 )
 
 // Match user and secret combination
-func Login(uk UserKey, sk SecretKey) error {
+func Login(uk UserKey, sk SecretKey) ([]RoleKey, error) {
 	if _, foundUser := cachedDB[uk]; !foundUser {
-		return errors.New(ErrUserNotFound)
+		return nil, fmt.Errorf(ErrUserNotFound, uk)
 	}
 	if cachedDB[uk].Secret != sk {
-		return errors.New(ErrLoginFailed)
+		return nil, fmt.Errorf(ErrLoginFailed, uk)
 	}
-	return nil
-}
-
-// Return roles of user
-func List(uk UserKey) RoleSet {
-	return cachedDB[uk].Roles
+	return cachedDB[uk].Roles, nil
 }
 
 // Match user and role combination
-func Query(uk UserKey, ur string) error {
+func Query(uk UserKey, ur RoleKey) error {
 	if _, foundUser := cachedDB[uk]; !foundUser {
-		return errors.New(ErrUserNotFound)
+		return fmt.Errorf(ErrUserNotFound, uk)
 	}
 	for _, role := range cachedDB[uk].Roles {
 		if role == ur {
 			return nil
 		}
 	}
-	return errors.New(ErrRoleNotFound)
+	return fmt.Errorf(ErrRoleNotFound, uk, ur)
 }
 
 // Match user, secret, permission combination
 // Administrative login
 func AdminLogin(uk UserKey, sk SecretKey) error {
 	if _, foundUser := cachedDB[uk]; !foundUser {
-		return errors.New(ErrUserNotFound)
+		return fmt.Errorf(ErrUserNotFound, uk)
 	} else if cachedDB[uk].Secret != sk {
-		return errors.New(ErrLoginFailed)
+		return fmt.Errorf(ErrLoginFailed, uk)
 	}
 	for _, role := range cachedDB[uk].Roles {
 		if role == RoleAdmin {
 			return nil
 		}
 	}
-	return errors.New(ErrUserNotAdmin)
+	return fmt.Errorf(ErrRoleNotFound, uk, RoleAdmin)
 }
 
 // Change secret of user
 func ChangeSecret(uk UserKey, sk SecretKey) error {
 	if userData, foundUser := cachedDB[uk]; !foundUser {
-		return errors.New(ErrUserNotFound)
+		return fmt.Errorf(ErrUserNotFound, uk)
 	} else {
 		userData.Secret = sk
 		cachedMutex.Lock()
@@ -80,19 +60,19 @@ func ChangeSecret(uk UserKey, sk SecretKey) error {
 }
 
 // Add new user
-func AddUser(uk UserKey, sk SecretKey, roles RoleSet) error {
+func AddUser(uk UserKey, sk SecretKey, rs []RoleKey) error {
 	if _, foundUser := cachedDB[uk]; foundUser {
-		return errors.New(ErrUserNotUnique)
+		return fmt.Errorf(ErrUserNotUnique, uk)
 	} else if uk == "" {
-		return errors.New(ErrUserNotUnique)
+		return fmt.Errorf(ErrUserNotUnique, uk)
 	}
 	cachedMutex.Lock()
 	cachedDB[uk] = struct {
 		Secret SecretKey
-		Roles  RoleSet
+		Roles  []RoleKey
 	}{
 		Secret: sk,
-		Roles:  roles,
+		Roles:  rs,
 	}
 	cachedMutex.Unlock()
 	return nil
@@ -101,9 +81,9 @@ func AddUser(uk UserKey, sk SecretKey, roles RoleSet) error {
 // Delete existing user
 func DelUser(uk UserKey) error {
 	if _, foundUser := cachedDB[uk]; !foundUser {
-		return errors.New(ErrUserNotFound)
+		return fmt.Errorf(ErrUserNotFound, uk)
 	} else if uk == "" {
-		return errors.New(ErrUserNotFound)
+		return fmt.Errorf(ErrUserNotFound, uk)
 	}
 	cachedMutex.Lock()
 	delete(cachedDB, uk)
@@ -112,13 +92,13 @@ func DelUser(uk UserKey) error {
 }
 
 // Add role to existing user
-func AddRole(uk UserKey, ur string) error {
+func AddRole(uk UserKey, rk RoleKey) error {
 	if userData, foundUser := cachedDB[uk]; !foundUser {
-		return errors.New(ErrUserNotFound)
-	} else if ur == "" {
-		return errors.New(ErrRoleNotFound)
+		return fmt.Errorf(ErrUserNotFound, uk)
+	} else if rk == "" {
+		return fmt.Errorf(ErrRoleNotFound, uk, rk)
 	} else {
-		userData.Roles = append(userData.Roles, ur)
+		userData.Roles = append(userData.Roles, rk)
 		cachedMutex.Lock()
 		cachedDB[uk] = userData
 		cachedMutex.Unlock()
@@ -127,15 +107,15 @@ func AddRole(uk UserKey, ur string) error {
 }
 
 // Delete role from existing user
-func DelRole(uk UserKey, ur string) error {
+func DelRole(uk UserKey, rk RoleKey) error {
 	if userData, foundUser := cachedDB[uk]; !foundUser {
-		return errors.New(ErrUserNotFound)
-	} else if ur == "" {
-		return errors.New(ErrRoleNotFound)
+		return fmt.Errorf(ErrUserNotFound, uk)
+	} else if rk == "" {
+		return fmt.Errorf(ErrRoleNotFound, uk, rk)
 	} else {
-		var newRoles RoleSet
+		var newRoles []RoleKey
 		for _, role := range userData.Roles {
-			if role == ur {
+			if role == rk {
 				continue
 			}
 			newRoles = append(newRoles, role)
