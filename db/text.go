@@ -30,6 +30,17 @@ func Query(uk UserKey, ur RoleKey) error {
 	return fmt.Errorf(ErrRoleNotFound, uk, ur)
 }
 
+// Copy and send cachedDB
+func Dump() AuthDB {
+	d := make(AuthDB, len(cachedDB))
+	cachedMutex.Lock()
+	for k, v := range cachedDB {
+		d[k] = v
+	}
+	cachedMutex.Unlock()
+	return d
+}
+
 // Match user, secret, permission combination
 // Administrative login
 func AdminLogin(uk UserKey, sk SecretKey) error {

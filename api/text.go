@@ -54,9 +54,25 @@ func authQuery(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Dump entire cachedDB
+func authDump(w http.ResponseWriter, r *http.Request) {
+	const funcName = "authDump"
+	var form formLogin
+	if err := receiveForm(r, &form); err != nil {
+		log.Printf(logFormat, funcName, err)
+		sendForm(w, formReply{Error: err.Error(), Data: nil})
+		return
+	} else if err := db.AdminLogin(form.User, form.Secret); err != nil {
+		log.Printf(logFormat, funcName, err)
+		sendForm(w, formReply{Error: err.Error(), Data: nil})
+		return
+	}
+	sendForm(w, formReply{Error: "", Data: db.Dump()})
+}
+
 // Change user secret
 func authChangeSecret(w http.ResponseWriter, r *http.Request) {
-	const funcName = "adminChangeSecret"
+	const funcName = "authChangeSecret"
 	var form formModifyUser
 	if err := receiveForm(r, &form); err != nil {
 		log.Printf(logFormat, funcName, err)
@@ -76,7 +92,7 @@ func authChangeSecret(w http.ResponseWriter, r *http.Request) {
 
 // Add new user
 func authAddUser(w http.ResponseWriter, r *http.Request) {
-	const funcName = "adminUserAdd"
+	const funcName = "authAddUser"
 	var form formModifyUser
 	if err := receiveForm(r, &form); err != nil {
 		log.Printf(logFormat, funcName, err)
@@ -96,7 +112,7 @@ func authAddUser(w http.ResponseWriter, r *http.Request) {
 
 // Delete user
 func authDeleteUser(w http.ResponseWriter, r *http.Request) {
-	const funcName = "adminUserDel"
+	const funcName = "authDeleteUser"
 	var form formModifyUser
 	if err := receiveForm(r, &form); err != nil {
 		log.Printf(logFormat, funcName, err)
@@ -116,7 +132,7 @@ func authDeleteUser(w http.ResponseWriter, r *http.Request) {
 
 // Add role to user
 func authAddRole(w http.ResponseWriter, r *http.Request) {
-	const funcName = "adminRoleAdd"
+	const funcName = "authAddRole"
 	var form formModifyRole
 	if err := receiveForm(r, &form); err != nil {
 		log.Printf(logFormat, funcName, err)
@@ -136,7 +152,7 @@ func authAddRole(w http.ResponseWriter, r *http.Request) {
 
 // Remove role from user
 func authDeleteRole(w http.ResponseWriter, r *http.Request) {
-	const funcName = "adminUserDel"
+	const funcName = "authDeleteRole"
 	var form formModifyRole
 	if err := receiveForm(r, &form); err != nil {
 		log.Printf(logFormat, funcName, err)
@@ -189,10 +205,13 @@ func PackageMain() {
 		os.Exit(3)
 	}
 
-	// Bind authentication functions to DefaultServeMux
+	// Regular functions
 	http.HandleFunc("/ping", ping)
 	http.HandleFunc("/auth/login", authLogin)
 	http.HandleFunc("/auth/query", authQuery)
+
+	// Administrative functions
+	http.HandleFunc("/auth/dump", authDump)
 	http.HandleFunc("/auth/changeSecret", authChangeSecret)
 	http.HandleFunc("/auth/addUser", authAddUser)
 	http.HandleFunc("/auth/deleteUser", authDeleteUser)
